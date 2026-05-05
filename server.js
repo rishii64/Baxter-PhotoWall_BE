@@ -67,8 +67,14 @@ app.get("/", (req, res) => {
 app.get("/api/posts", async (req, res) => {
     try {
         await connectDB(); // Ensure DB is connected before operation
-        const posts = await Post.find().sort({ _id: -1 });
-        res.json(posts);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const skip = (page - 1) * limit;
+
+        const total = await Post.countDocuments();
+        const posts = await Post.find().sort({ _id: -1 }).skip(skip).limit(limit);
+        
+        res.json({ posts, total });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
