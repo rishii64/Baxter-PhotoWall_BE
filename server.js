@@ -14,6 +14,20 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" })); // important for base64 images
 
 // ======================== MongoDB Connection ===================
+// let isConnected = false;
+
+// const connectToDB = async () => {
+//     if (isConnected) return;
+
+//     try {
+//         const db = await mongoose.connect(process.env.MONGO_URI);
+//         isConnected = db.connections[0].readyState;
+//         console.log("MongoDB Connected");
+//     } catch (err) {
+//         console.error("MongoDB Connection Error:", err);
+//         throw err;
+//     }
+// };
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB Connected"))
     .catch(err => console.log(err));
@@ -33,6 +47,7 @@ const Post = mongoose.model("Post", postSchema);
 
 app.post("/api/posts", async (req, res) => {
     try {
+        // await connectToDB();
         const { image } = req.body;
         if (!image) {
             return res.status(400).json({ error: "Image is required" });
@@ -52,6 +67,7 @@ app.get("/", (req, res) => {
 
 app.get("/api/posts", async (req, res) => {
     try {
+        // await connectToDB();
         const posts = await Post.find().sort({ _id: -1 });
         res.json(posts);
     } catch (err) {
@@ -61,4 +77,6 @@ app.get("/api/posts", async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on ${PORT}`);
+    // if (isConnected = true)
+        // console.log('mongoDB connected');
 });
