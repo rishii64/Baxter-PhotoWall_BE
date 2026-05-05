@@ -48,6 +48,10 @@ app.post("/api/posts", async (req, res) => {
     }
 });
 
+app.get("/", (req, res) => {
+    res.status(200).json({ msg: 'API running...!' });
+})
+
 app.get("/api/posts", async (req, res) => {
     try {
         const posts = await Post.find().sort({ _id: -1 });
