@@ -12,11 +12,14 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1043.0",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "mongoose": "^9.5.0",
-    "nodemon": "^3.1.14"
+    "multer": "^2.1.1",
+    "nodemon": "^3.1.14",
+    "uuid": "^9.0.1"
   }
 }

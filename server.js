@@ -3,6 +3,8 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dns from "dns";
+import upload from "./multer.js";
+import { uploadToS3 } from "./aws/s3.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
@@ -11,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: "10mb" })); // important for base64 images
+app.use(express.json({ limit: "50kb" }));  // Reduced since no more Base64
 
 // ======================== MongoDB Connection ===================
 // Global variable to cache the connection in serverless environments
@@ -36,27 +38,77 @@ const postSchema = new mongoose.Schema({
     name: String,
     empID: String,
     phTitle: String,
-    profileImage: String,   // base64 image
-    image: String,   // base64 image
+    profileImageUrl: String,  // S3 URL instead of Base64
+    imageUrl: String,         // S3 URL instead of Base64
     comment: String,
     date: String,
 }, { timestamps: true });
 
 const Post = mongoose.model("Post", postSchema);
 
-app.post("/api/posts", async (req, res) => {
+// ========================= Routes ===========================
+app.post("/api/posts", upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "profileImage", maxCount: 1 }
+]), async (req, res) => {
     try {
-        await connectDB(); // Ensure DB is connected before operation
-        const { image } = req.body;
-        if (!image) {
-            return res.status(400).json({ error: "Image is required" });
+        await connectDB();
+
+        // Log for debugging
+        console.log("req.files:", req.files);
+        console.log("req.body:", req.body);
+
+        // Validate required fields
+        if (!req.body.name || !req.body.empID || !req.body.phTitle) {
+            return res.status(400).json({
+                error: "Name, Employee ID, and Photo Title are required"
+            });
         }
-        const post = new Post(req.body);
+
+        if (!req.files?.image || req.files.image.length === 0) {
+            return res.status(400).json({
+                error: "Main image is required"
+            });
+        }
+
+        // Upload files to S3
+        let imageUrl = null;
+        let profileImageUrl = null;
+
+        try {
+            imageUrl = await uploadToS3(req.files.image[0], "posts");
+            if (req.files.profileImage?.[0]) {
+                profileImageUrl = await uploadToS3(req.files.profileImage[0], "profiles");
+            }
+        } catch (uploadError) {
+            console.error("S3 upload error:", uploadError);
+            return res.status(500).json({
+                error: "Failed to upload image to storage: " + uploadError.message
+            });
+        }
+
+        // Create and save post
+        const post = new Post({
+            name: req.body.name.trim(),
+            empID: req.body.empID.trim(),
+            phTitle: req.body.phTitle.trim(),
+            comment: req.body.comment?.trim() || "No comment provided.",
+            date: req.body.date,
+            imageUrl,
+            profileImageUrl
+        });
+
         await post.save();
-        res.status(201).json({ message: "Post saved", post });
+
+        res.status(201).json({
+            message: "Post created successfully",
+            post
+        });
     } catch (err) {
         console.error("POST /api/posts error:", err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({
+            error: err.message || "Internal server error"
+        });
     }
 });
 
@@ -64,6 +116,7 @@ app.get("/", (req, res) => {
     res.status(200).json({ msg: 'API running...!' });
 });
 
+// GET: Retrieve posts with pagination
 app.get("/api/posts", async (req, res) => {
     try {
         await connectDB(); // Ensure DB is connected before operation
@@ -73,11 +126,26 @@ app.get("/api/posts", async (req, res) => {
 
         const total = await Post.countDocuments();
         const posts = await Post.find().sort({ _id: -1 }).skip(skip).limit(limit);
-        
+
         res.json({ posts, total });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("GET /api/posts error:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
+});
+
+// Global error handler for multer (must be last)
+app.use((err, req, res, next) => {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: "File size too large (max 5MB)" });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ error: "Too many files" });
+    }
+    if (err.message.includes("Only image files")) {
+        return res.status(400).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message || "Internal server error" });
 });
 
 app.listen(PORT, () => {
