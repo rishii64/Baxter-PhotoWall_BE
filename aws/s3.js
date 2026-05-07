@@ -27,6 +27,6 @@ export const uploadToS3 = async (file, folder) => {
         return fileUrl;
     } catch (error) {
         console.error("S3 Upload Error:", error);
-        throw new Error("Failed to upload file to S3");
+        throw new Error("Failed to upload file to S3: " + error.message);
     }
 };

@@ -3,14 +3,19 @@ import multer from "multer";
 // Memory storage for temporary file handling (files get uploaded to S3)
 const storage = multer.memoryStorage();
 
-// File filter - only accept images
+import path from "path";
+
+// File filter - only accept images and handle edge cases
 const fileFilter = (req, file, cb) => {
-  const allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  
-  if (allowedMimes.includes(file.mimetype)) {
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.tiff', '.tif', '.bmp', '.svg'];
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  // Check if it's explicitly an image mimetype, OR if the file extension is a known image type 
+  // (handles edge cases like iOS HEIC files uploading as application/octet-stream)
+  if (file.mimetype.startsWith("image/") || allowedExtensions.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error("Only image files are allowed (JPEG, PNG, WebP, GIF)"));
+    cb(new Error("Only image files are allowed. Please upload a valid image format."));
   }
 };
 
