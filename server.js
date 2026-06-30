@@ -76,7 +76,7 @@ app.post("/api/posts", upload.fields([
         let profileImageUrl = null;
 
         try {
-            imageUrl = await uploadToS3(req.files.image[0], "posts");
+            imageUrl = await uploadToS3(req.files.image[0], "cargillPosts");
             if (req.files.profileImage?.[0]) {
                 profileImageUrl = await uploadToS3(req.files.profileImage[0], "profiles");
             }
