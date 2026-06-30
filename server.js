@@ -44,7 +44,7 @@ const postSchema = new mongoose.Schema({
     date: String,
 }, { timestamps: true });
 
-const Post = mongoose.model("Post", postSchema);
+const Post = mongoose.model("CargillPost", postSchema);
 
 // ========================= Routes ===========================
 app.post("/api/posts", upload.fields([
